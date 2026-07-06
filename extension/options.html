@@ -1,0 +1,55 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>한국어 맞춤법 검사기 설정</title>
+    <style>
+      body {
+        font-family: -apple-system, "Segoe UI", Malgun Gothic, sans-serif;
+        font-size: 14px;
+        max-width: 480px;
+        margin: 40px auto;
+        padding: 0 16px;
+      }
+      h1 {
+        font-size: 18px;
+      }
+      label {
+        display: block;
+        margin: 16px 0 6px;
+        font-weight: 600;
+      }
+      select {
+        width: 100%;
+        padding: 6px;
+      }
+      .note {
+        color: #666;
+        font-size: 12px;
+        margin-top: 6px;
+      }
+      #status {
+        margin-top: 16px;
+        color: #2e7d32;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>한국어 맞춤법 검사기 설정</h1>
+    <p class="note">
+      API 키 입력란이 없습니다. 로컬에 설치·로그인된 Claude Code CLI의 구독 세션을 그대로
+      사용하기 때문입니다.
+    </p>
+
+    <label for="model">교정 모델</label>
+    <select id="model">
+      <option value="claude-haiku-4-5-20251001">Haiku (빠름, 권장)</option>
+      <option value="claude-sonnet-5">Sonnet (균형)</option>
+      <option value="claude-opus-4-8">Opus (정밀)</option>
+    </select>
+    <div class="note">맞춤법 교정은 비교적 단순한 작업이라 Haiku가 속도/품질 균형이 좋습니다.</div>
+
+    <div id="status"></div>
+    <script src="options.js"></script>
+  </body>
+</html>

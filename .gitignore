@@ -1,0 +1,18 @@
+# 비공개 서명 키 - 절대 커밋 금지 (별도 안전한 곳에 백업)
+key.pem
+manifest_key.txt
+
+# 빌드 산출물 (package.ps1 / PyInstaller 로 재생성 가능)
+ko-spellcheck-dist.zip
+host/host.exe
+host/build/
+host/dist/
+host/*.spec
+
+# 기기별로 install.bat 이 재생성하는 파일
+host/host-manifest.json
+host/host.log
+
+# 파이썬 캐시
+__pycache__/
+*.pyc

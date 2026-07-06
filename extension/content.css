@@ -1,0 +1,118 @@
+#__ko-spellcheck-overlay__ {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  width: 340px;
+  max-height: 60vh;
+  overflow-y: auto;
+  background: #ffffff;
+  color: #1a1a1a;
+  border: 1px solid #d0d0d0;
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+  z-index: 2147483647;
+  font-family: -apple-system, "Segoe UI", Malgun Gothic, sans-serif;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+#__ko-spellcheck-overlay__ .ko-sc-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  font-weight: 600;
+  background: #f4f4f5;
+  border-bottom: 1px solid #e2e2e2;
+  border-radius: 8px 8px 0 0;
+}
+
+#__ko-spellcheck-overlay__ .ko-sc-close {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: 14px;
+  color: #666;
+}
+
+#__ko-spellcheck-overlay__ .ko-sc-body {
+  padding: 12px;
+}
+
+#__ko-spellcheck-overlay__ .ko-sc-loading {
+  color: #666;
+}
+
+#__ko-spellcheck-overlay__ .ko-sc-error {
+  color: #c0392b;
+}
+
+#__ko-spellcheck-overlay__ .ko-sc-ok {
+  color: #2e7d32;
+}
+
+#__ko-spellcheck-overlay__ .ko-sc-corrected {
+  padding: 8px;
+  background: #fafafa;
+  border-radius: 6px;
+  margin-bottom: 8px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+#__ko-spellcheck-overlay__ .ko-sc-corrected mark {
+  background: #fff2a8;
+  border-radius: 2px;
+  padding: 0 2px;
+}
+
+#__ko-spellcheck-overlay__ .ko-sc-edits {
+  list-style: none;
+  margin: 0 0 8px 0;
+  padding: 0;
+}
+
+#__ko-spellcheck-overlay__ .ko-sc-edits li {
+  padding: 6px 0;
+  border-bottom: 1px dashed #e5e5e5;
+}
+
+#__ko-spellcheck-overlay__ .ko-sc-before {
+  color: #c0392b;
+  text-decoration: line-through;
+}
+
+#__ko-spellcheck-overlay__ .ko-sc-after {
+  color: #2e7d32;
+  font-weight: 600;
+}
+
+#__ko-spellcheck-overlay__ .ko-sc-reason {
+  color: #888;
+  font-size: 12px;
+}
+
+#__ko-spellcheck-overlay__ .ko-sc-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+#__ko-spellcheck-overlay__ .ko-sc-actions button {
+  padding: 6px 14px;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+#__ko-spellcheck-overlay__ .ko-sc-apply {
+  background: #2563eb;
+  color: #fff;
+}
+
+#__ko-spellcheck-overlay__ .ko-sc-cancel {
+  background: #f1f1f1;
+  color: #333;
+  border-color: #ddd;
+}
