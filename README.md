@@ -4,6 +4,12 @@
 
 여러분 컴퓨터에 설치된 **Claude Code**가 맞춤법을 검사하므로, 별도의 API 키나 토큰 과금이 없습니다. (본인 Claude 구독 로그인 세션을 그대로 사용)
 
+## 📥 다운로드
+
+**[▶ 최신 버전 내려받기 (ko-spellcheck-dist.zip)](https://github.com/carsy078-maker/korean-spellchecker/releases/latest/download/ko-spellcheck-dist.zip)**
+
+압축을 풀고 아래 "설치하기" 안내를 따르세요. (Python 설치 불필요 — 실행 파일이 포함돼 있습니다.)
+
 ---
 
 ## 이게 어떻게 작동하나요?
