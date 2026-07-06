@@ -20,8 +20,8 @@ Copy-Item (Join-Path $root "host\host.exe") (Join-Path $stage "host")
 # root distribution files
 Copy-Item (Join-Path $root "install.bat")   $stage
 Copy-Item (Join-Path $root "uninstall.bat") $stage
-# Korean-named guide copied via pattern to avoid literal-encoding issues in PS 5.1
-Get-ChildItem -Path $root -Filter "*.txt" | Where-Object { $_.Name -notmatch "manifest_key" } | Copy-Item -Destination $stage
+# recipient guide (Markdown; also rendered on GitHub)
+Copy-Item (Join-Path $root "README.md") $stage
 
 # Explicitly NOT included: key.pem, manifest_key.txt, host.log, host.py, SETUP.md, design doc.
 

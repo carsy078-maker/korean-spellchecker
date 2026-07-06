@@ -29,7 +29,7 @@ if errorlevel 1 (
   echo [안내] Claude Code 프로그램이 아직 없습니다.
   echo        이 확장은 당신의 Claude 로그인으로 맞춤법을 고칩니다.
   echo        먼저 Claude Code를 설치하고 로그인해야 작동합니다.
-  echo        설명서.txt 의 "먼저 준비할 것" 부분을 참고하세요.
+  echo        README.md 의 "먼저 준비할 것" 부분을 참고하세요.
   echo.
   echo        (지금 없어도 설치는 계속 진행합니다. 나중에 Claude 설치 후
   echo         이 파일을 다시 실행하지 않아도 됩니다.)
@@ -74,6 +74,6 @@ echo        %ROOT%extension
 echo.
 echo 사용법: 웹사이트 입력칸을 클릭한 뒤 키보드로  Ctrl + Shift + K
 echo.
-echo 자세한 내용은 "설명서.txt" 를 참고하세요.
+echo 자세한 내용은 "README.md" 파일을 참고하세요.
 echo.
 pause
