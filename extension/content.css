@@ -43,6 +43,17 @@
   color: #666;
 }
 
+#__ko-spellcheck-overlay__ .ko-sc-elapsed {
+  color: #999;
+  font-variant-numeric: tabular-nums;
+}
+
+#__ko-spellcheck-overlay__ .ko-sc-hint {
+  margin-top: 4px;
+  font-size: 11px;
+  color: #999;
+}
+
 #__ko-spellcheck-overlay__ .ko-sc-error {
   color: #c0392b;
 }

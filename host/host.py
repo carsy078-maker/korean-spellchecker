@@ -23,7 +23,7 @@ SYSTEM_PROMPT = (
 )
 
 DEFAULT_MODEL = "claude-haiku-4-5-20251001"
-CLAUDE_TIMEOUT_SEC = 60
+CLAUDE_TIMEOUT_SEC = 180
 
 
 def read_message():
@@ -69,6 +69,13 @@ def run_claude(text, model):
 
     env = os.environ.copy()
     env.pop("ANTHROPIC_API_KEY", None)  # 구독(OAuth) 세션 강제 사용
+    # CLI 시작 시 자동 업데이트 체크/다운로드, 텔레메트리 등 불필요한 네트워크 작업을
+    # 끈다. (가끔 이 작업들이 요청을 수십 초 지연시켜 타임아웃을 유발함)
+    env["CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC"] = "1"
+    env["DISABLE_AUTOUPDATER"] = "1"
+    env["DISABLE_TELEMETRY"] = "1"
+    env["DISABLE_ERROR_REPORTING"] = "1"
+    env["DISABLE_BUG_COMMAND"] = "1"
 
     user_prompt = f"입력:\n{text}"
 
@@ -135,7 +142,7 @@ def main():
         send_message({"ok": True, "result": result})
     except subprocess.TimeoutExpired:
         logging.exception("claude CLI 타임아웃")
-        send_message({"ok": False, "error": "claude CLI 응답 시간 초과"})
+        send_message({"ok": False, "error": "응답 시간이 너무 오래 걸립니다. 텍스트를 더 짧게 나눠 검사하거나 잠시 후 다시 시도하세요."})
     except Exception as e:
         logging.exception("호스트 처리 중 오류")
         send_message({"ok": False, "error": str(e)})

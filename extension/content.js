@@ -3,6 +3,14 @@
   const DEFAULT_MODEL = "claude-haiku-4-5-20251001";
 
   let lastEditable = null;
+  let loadingTimer = null;
+
+  function clearLoadingTimer() {
+    if (loadingTimer) {
+      clearInterval(loadingTimer);
+      loadingTimer = null;
+    }
+  }
 
   function isEditable(el) {
     if (!el || el.nodeType !== 1) return false;
@@ -124,6 +132,7 @@
   }
 
   function removeOverlay() {
+    clearLoadingTimer();
     const existing = document.getElementById(OVERLAY_ID);
     if (existing) existing.remove();
   }
@@ -140,12 +149,19 @@
     const box = createOverlayShell();
     box.innerHTML = `
       <div class="ko-sc-header">한국어 맞춤법 검사 <button class="ko-sc-close" data-action="close">✕</button></div>
-      <div class="ko-sc-body ko-sc-loading">검사 중...</div>
+      <div class="ko-sc-body ko-sc-loading">검사 중... <span class="ko-sc-elapsed">0초</span><div class="ko-sc-hint">텍스트가 길면 시간이 걸릴 수 있어요.</div></div>
     `;
     box.querySelector('[data-action="close"]').addEventListener("click", removeOverlay);
+    const started = Date.now();
+    const elapsedEl = box.querySelector(".ko-sc-elapsed");
+    loadingTimer = setInterval(() => {
+      if (!elapsedEl.isConnected) return;
+      elapsedEl.textContent = Math.round((Date.now() - started) / 1000) + "초";
+    }, 1000);
   }
 
   function showError(message) {
+    clearLoadingTimer();
     const box = document.getElementById(OVERLAY_ID) || createOverlayShell();
     box.innerHTML = `
       <div class="ko-sc-header">한국어 맞춤법 검사 <button class="ko-sc-close" data-action="close">✕</button></div>
@@ -155,6 +171,7 @@
   }
 
   function showResult(info, result, onApply) {
+    clearLoadingTimer();
     const box = document.getElementById(OVERLAY_ID) || createOverlayShell();
     const edits = result.edits || [];
     const unchanged = !edits.length || result.corrected === info.text;
