@@ -1,7 +1,7 @@
 (() => {
   const OVERLAY_ID = "__ko-spellcheck-overlay__";
   const DEFAULT_MODEL = "claude-haiku-4-5-20251001";
-  const VERSION = "0.1.4";
+  const VERSION = chrome.runtime.getManifest().version;
 
   let lastEditable = null;
   let loadingTimer = null;

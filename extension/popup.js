@@ -1,6 +1,8 @@
 const enabledCheckbox = document.getElementById("enabled");
 const runButton = document.getElementById("run");
 
+document.getElementById("ver").textContent = "v" + chrome.runtime.getManifest().version;
+
 chrome.storage.sync.get({ enabled: true }, ({ enabled }) => {
   enabledCheckbox.checked = enabled;
 });
