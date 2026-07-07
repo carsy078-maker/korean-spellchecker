@@ -27,12 +27,36 @@
   border-radius: 8px 8px 0 0;
 }
 
+#__ko-spellcheck-overlay__ .ko-sc-ver {
+  margin-left: 6px;
+  font-size: 10px;
+  font-weight: 400;
+  color: #aaa;
+}
+
 #__ko-spellcheck-overlay__ .ko-sc-close {
+  margin-left: auto;
   border: none;
   background: transparent;
   cursor: pointer;
   font-size: 14px;
   color: #666;
+}
+
+#__ko-spellcheck-overlay__ .ko-sc-copybox {
+  width: 100%;
+  box-sizing: border-box;
+  min-height: 80px;
+  margin: 8px 0;
+  padding: 8px;
+  font-family: inherit;
+  font-size: 13px;
+  line-height: 1.5;
+  color: #1a1a1a;
+  background: #fafafa;
+  border: 1px solid #d0d0d0;
+  border-radius: 6px;
+  resize: vertical;
 }
 
 #__ko-spellcheck-overlay__ .ko-sc-body {

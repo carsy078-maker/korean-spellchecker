@@ -1,9 +1,18 @@
 (() => {
   const OVERLAY_ID = "__ko-spellcheck-overlay__";
   const DEFAULT_MODEL = "claude-haiku-4-5-20251001";
+  const VERSION = "0.1.4";
 
   let lastEditable = null;
   let loadingTimer = null;
+
+  function headerHtml() {
+    return (
+      `<div class="ko-sc-header">한국어 맞춤법 검사 ` +
+      `<span class="ko-sc-ver">v${VERSION}</span>` +
+      `<button class="ko-sc-close" data-action="close">✕</button></div>`
+    );
+  }
 
   function clearLoadingTimer() {
     if (loadingTimer) {
@@ -91,10 +100,11 @@
     return null;
   }
 
-  function replaceFieldValue(el, newText, s, e) {
+  // 입력칸(input/textarea)에 교정문을 적용한다. 실제로 값이 바뀌면 true 를 반환한다.
+  function applyToField(el, newText, s, e) {
     el.focus();
-    // 검사 이후 값이 바뀌었을 수 있으니 범위를 안전하게 보정
-    const len = el.value.length;
+    const before = el.value;
+    const len = before.length;
     const start = Math.min(s, len);
     const end = Math.min(e, len);
     try {
@@ -103,28 +113,37 @@
       /* 일부 input type 은 setSelectionRange 미지원 */
     }
 
-    // 1순위: execCommand insertText → 브라우저 입력 파이프라인을 타서
+    // 방법 1: execCommand insertText → 브라우저 입력 파이프라인을 타서
     // React/Vue 등 프레임워크의 onChange 가 정상 발동한다.
-    const before = el.value;
-    let ok = false;
     try {
-      ok = document.execCommand("insertText", false, newText);
+      if (document.execCommand("insertText", false, newText) && el.value !== before) {
+        return true;
+      }
     } catch (_) {
-      ok = false;
+      /* 폴백으로 진행 */
     }
-    if (ok && el.value !== before) return;
 
-    // 2순위: 네이티브 value setter + 이벤트 강제 발생
-    const proto =
-      el.tagName === "TEXTAREA" ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
-    const setter = Object.getOwnPropertyDescriptor(proto, "value").set;
-    setter.call(el, el.value.slice(0, start) + newText + el.value.slice(end));
-    el.dispatchEvent(new InputEvent("input", { bubbles: true }));
-    el.dispatchEvent(new Event("change", { bubbles: true }));
+    // 방법 2: 네이티브 value setter + 이벤트 강제 발생 (React value tracker 우회)
+    try {
+      const proto =
+        el.tagName === "TEXTAREA" ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
+      const setter = Object.getOwnPropertyDescriptor(proto, "value").set;
+      setter.call(el, before.slice(0, start) + newText + before.slice(end));
+      el.dispatchEvent(
+        new InputEvent("input", { bubbles: true, inputType: "insertText", data: newText })
+      );
+      el.dispatchEvent(new Event("change", { bubbles: true }));
+      if (el.value !== before) return true;
+    } catch (_) {
+      /* 실패 */
+    }
+    return false;
   }
 
-  function replaceEditableValue(el, newText, range) {
+  // contenteditable 에 교정문을 적용한다. 실제로 내용이 바뀌면 true 를 반환한다.
+  function applyToEditable(el, newText, range) {
     el.focus();
+    const before = el.innerText;
     const sel = window.getSelection();
     sel.removeAllRanges();
     if (range) {
@@ -135,23 +154,29 @@
       sel.addRange(r);
     }
 
-    // 1순위: execCommand insertText → Draft.js/Lexical 등 프레임워크 에디터도 반영됨
-    let ok = false;
+    // 방법 1: execCommand insertText → Draft.js/Lexical 등 프레임워크 에디터도 반영됨
     try {
-      ok = document.execCommand("insertText", false, newText);
+      if (document.execCommand("insertText", false, newText) && el.innerText !== before) {
+        return true;
+      }
     } catch (_) {
-      ok = false;
+      /* 폴백으로 진행 */
     }
-    if (ok) return;
 
-    // 2순위: DOM 직접 조작
-    if (range) {
-      range.deleteContents();
-      range.insertNode(document.createTextNode(newText));
-    } else {
-      el.innerText = newText;
+    // 방법 2: DOM 직접 조작
+    try {
+      if (range) {
+        range.deleteContents();
+        range.insertNode(document.createTextNode(newText));
+      } else {
+        el.innerText = newText;
+      }
+      el.dispatchEvent(new InputEvent("input", { bubbles: true }));
+      if (el.innerText !== before) return true;
+    } catch (_) {
+      /* 실패 */
     }
-    el.dispatchEvent(new InputEvent("input", { bubbles: true }));
+    return false;
   }
 
   function escapeHtml(str) {
@@ -192,7 +217,7 @@
   function showLoading() {
     const box = createOverlayShell();
     box.innerHTML = `
-      <div class="ko-sc-header">한국어 맞춤법 검사 <button class="ko-sc-close" data-action="close">✕</button></div>
+      ${headerHtml()}
       <div class="ko-sc-body ko-sc-loading">검사 중... <span class="ko-sc-elapsed">0초</span><div class="ko-sc-hint">텍스트가 길면 시간이 걸릴 수 있어요.</div></div>
     `;
     box.querySelector('[data-action="close"]').addEventListener("click", removeOverlay);
@@ -208,10 +233,40 @@
     clearLoadingTimer();
     const box = document.getElementById(OVERLAY_ID) || createOverlayShell();
     box.innerHTML = `
-      <div class="ko-sc-header">한국어 맞춤법 검사 <button class="ko-sc-close" data-action="close">✕</button></div>
+      ${headerHtml()}
       <div class="ko-sc-body ko-sc-error">${escapeHtml(message).replace(/\n/g, "<br>")}</div>
     `;
     box.querySelector('[data-action="close"]').addEventListener("click", removeOverlay);
+  }
+
+  // 자동 적용이 실패한 사이트를 위해 교정문을 복사할 수 있게 보여준다.
+  function showCopyFallback(correctedText) {
+    const box = document.getElementById(OVERLAY_ID) || createOverlayShell();
+    box.innerHTML = `
+      ${headerHtml()}
+      <div class="ko-sc-body">
+        <div class="ko-sc-error">이 사이트에서는 자동 적용이 안 돼요.<br>아래 교정문을 복사해 직접 붙여넣으세요.</div>
+        <textarea class="ko-sc-copybox" readonly></textarea>
+        <div class="ko-sc-actions">
+          <button class="ko-sc-apply" data-action="copy">교정문 복사</button>
+          <button class="ko-sc-cancel" data-action="cancel">닫기</button>
+        </div>
+      </div>
+    `;
+    const ta = box.querySelector(".ko-sc-copybox");
+    ta.value = correctedText;
+    box.querySelector('[data-action="close"]').addEventListener("click", removeOverlay);
+    box.querySelector('[data-action="cancel"]').addEventListener("click", removeOverlay);
+    box.querySelector('[data-action="copy"]').addEventListener("click", async (ev) => {
+      try {
+        await navigator.clipboard.writeText(correctedText);
+      } catch (_) {
+        ta.focus();
+        ta.select();
+        document.execCommand("copy");
+      }
+      ev.target.textContent = "복사됨 ✓";
+    });
   }
 
   function showResult(info, result, onApply) {
@@ -230,7 +285,7 @@
       .join("");
 
     box.innerHTML = `
-      <div class="ko-sc-header">한국어 맞춤법 검사 <button class="ko-sc-close" data-action="close">✕</button></div>
+      ${headerHtml()}
       <div class="ko-sc-body">
         ${
           unchanged
@@ -252,8 +307,13 @@
     const applyBtn = box.querySelector('[data-action="apply"]');
     if (applyBtn) {
       applyBtn.addEventListener("click", () => {
-        onApply(result.corrected);
-        removeOverlay();
+        const applied = onApply(result.corrected);
+        if (applied) {
+          removeOverlay();
+        } else {
+          // 자동 적용 실패 → 복사 폴백 제공
+          showCopyFallback(result.corrected);
+        }
       });
     }
   }
@@ -294,10 +354,9 @@
       }
       showResult(info, resp.result, (correctedText) => {
         if (info.kind === "field") {
-          replaceFieldValue(info.el, correctedText, info.s, info.e);
-        } else {
-          replaceEditableValue(info.el, correctedText, info.range);
+          return applyToField(info.el, correctedText, info.s, info.e);
         }
+        return applyToEditable(info.el, correctedText, info.range);
       });
     });
   }
