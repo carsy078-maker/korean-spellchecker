@@ -92,22 +92,66 @@
   }
 
   function replaceFieldValue(el, newText, s, e) {
+    el.focus();
+    // 검사 이후 값이 바뀌었을 수 있으니 범위를 안전하게 보정
+    const len = el.value.length;
+    const start = Math.min(s, len);
+    const end = Math.min(e, len);
+    try {
+      el.setSelectionRange(start, end);
+    } catch (_) {
+      /* 일부 input type 은 setSelectionRange 미지원 */
+    }
+
+    // 1순위: execCommand insertText → 브라우저 입력 파이프라인을 타서
+    // React/Vue 등 프레임워크의 onChange 가 정상 발동한다.
+    const before = el.value;
+    let ok = false;
+    try {
+      ok = document.execCommand("insertText", false, newText);
+    } catch (_) {
+      ok = false;
+    }
+    if (ok && el.value !== before) return;
+
+    // 2순위: 네이티브 value setter + 이벤트 강제 발생
     const proto =
       el.tagName === "TEXTAREA" ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
     const setter = Object.getOwnPropertyDescriptor(proto, "value").set;
-    const newValue = el.value.slice(0, s) + newText + el.value.slice(e);
-    setter.call(el, newValue);
-    el.dispatchEvent(new Event("input", { bubbles: true }));
+    setter.call(el, el.value.slice(0, start) + newText + el.value.slice(end));
+    el.dispatchEvent(new InputEvent("input", { bubbles: true }));
+    el.dispatchEvent(new Event("change", { bubbles: true }));
   }
 
   function replaceEditableValue(el, newText, range) {
+    el.focus();
+    const sel = window.getSelection();
+    sel.removeAllRanges();
+    if (range) {
+      sel.addRange(range);
+    } else {
+      const r = document.createRange();
+      r.selectNodeContents(el);
+      sel.addRange(r);
+    }
+
+    // 1순위: execCommand insertText → Draft.js/Lexical 등 프레임워크 에디터도 반영됨
+    let ok = false;
+    try {
+      ok = document.execCommand("insertText", false, newText);
+    } catch (_) {
+      ok = false;
+    }
+    if (ok) return;
+
+    // 2순위: DOM 직접 조작
     if (range) {
       range.deleteContents();
       range.insertNode(document.createTextNode(newText));
     } else {
       el.innerText = newText;
     }
-    el.dispatchEvent(new Event("input", { bubbles: true }));
+    el.dispatchEvent(new InputEvent("input", { bubbles: true }));
   }
 
   function escapeHtml(str) {
