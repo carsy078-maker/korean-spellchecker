@@ -4,24 +4,57 @@
 
   let lastEditable = null;
 
-  document.addEventListener(
-    "focusin",
-    (e) => {
-      const el = e.target;
-      if (isEditable(el)) lastEditable = el;
-    },
-    true
-  );
-
   function isEditable(el) {
-    if (!el) return false;
+    if (!el || el.nodeType !== 1) return false;
     if (el.tagName === "TEXTAREA" || el.tagName === "INPUT") return true;
     if (el.isContentEditable) return true;
     return false;
   }
 
+  // 클릭/포커스한 노드에서 위로 올라가며 편집 가능한 조상 요소를 찾는다
+  // (contenteditable 안의 자식 노드를 눌러도 편집 루트를 잡기 위함)
+  function editableAncestor(node) {
+    let el = node;
+    while (el) {
+      if (isEditable(el)) return el;
+      if (el.parentNode) el = el.parentNode;
+      else if (el.host) el = el.host; // ShadowRoot -> 호스트 요소로 경계 넘기
+      else break;
+    }
+    return null;
+  }
+
+  function remember(target) {
+    const ed = editableAncestor(target);
+    if (ed) lastEditable = ed;
+  }
+
+  // 포커스가 팝업으로 넘어가기 "전에" 마지막 입력칸을 기억해 둔다.
+  // 툴바 팝업을 열면 document.activeElement 가 body 로 바뀌므로 이 추적이 필수다.
+  document.addEventListener("focusin", (e) => remember(e.target), true);
+  document.addEventListener("pointerdown", (e) => remember(e.target), true);
+
+  // 스크립트가 페이지 로드 후 나중에 주입된 경우(기존 탭)에도 현재 포커스된 칸을 즉시 잡는다
+  if (isEditable(document.activeElement)) lastEditable = document.activeElement;
+
+  // same-origin iframe 안쪽까지 파고들어 실제 포커스된 요소를 찾는다
+  function deepActiveElement() {
+    let a = document.activeElement;
+    while (a && a.tagName === "IFRAME") {
+      let doc = null;
+      try {
+        doc = a.contentDocument;
+      } catch (e) {
+        break; // cross-origin
+      }
+      if (!doc || !doc.activeElement) break;
+      a = doc.activeElement;
+    }
+    return a;
+  }
+
   function getActiveEditable() {
-    const active = document.activeElement;
+    const active = deepActiveElement();
     if (isEditable(active)) return active;
     return lastEditable;
   }
@@ -116,7 +149,7 @@
     const box = document.getElementById(OVERLAY_ID) || createOverlayShell();
     box.innerHTML = `
       <div class="ko-sc-header">한국어 맞춤법 검사 <button class="ko-sc-close" data-action="close">✕</button></div>
-      <div class="ko-sc-body ko-sc-error">오류: ${escapeHtml(message)}</div>
+      <div class="ko-sc-body ko-sc-error">${escapeHtml(message).replace(/\n/g, "<br>")}</div>
     `;
     box.querySelector('[data-action="close"]').addEventListener("click", removeOverlay);
   }
@@ -166,9 +199,20 @@
 
   async function handleRunCheck() {
     const el = getActiveEditable();
-    if (!el) return;
+    if (!el) {
+      showError(
+        "검사할 입력칸을 찾지 못했어요.\n" +
+          "① 글자를 입력하는 칸을 한 번 클릭한 뒤\n" +
+          "② 단축키 Ctrl+Shift+K 로 실행해 보세요.\n" +
+          "(예전부터 열려 있던 페이지라면 새로고침 후 다시 시도)"
+      );
+      return;
+    }
     const info = getTargetText(el);
-    if (!info || !info.text.trim()) return;
+    if (!info || !info.text.trim()) {
+      showError("입력칸에 검사할 글자가 없어요.\n글자를 입력한 뒤 다시 시도하세요.");
+      return;
+    }
 
     const { enabled = true, model = DEFAULT_MODEL } = await chrome.storage.sync.get({
       enabled: true,
