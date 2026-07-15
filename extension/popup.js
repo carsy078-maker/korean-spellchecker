@@ -1,14 +1,20 @@
 const enabledCheckbox = document.getElementById("enabled");
+const autoCheckCheckbox = document.getElementById("autoCheck");
 const runButton = document.getElementById("run");
 
 document.getElementById("ver").textContent = "v" + chrome.runtime.getManifest().version;
 
-chrome.storage.sync.get({ enabled: true }, ({ enabled }) => {
+chrome.storage.sync.get({ enabled: true, autoCheck: false }, ({ enabled, autoCheck }) => {
   enabledCheckbox.checked = enabled;
+  autoCheckCheckbox.checked = autoCheck;
 });
 
 enabledCheckbox.addEventListener("change", () => {
   chrome.storage.sync.set({ enabled: enabledCheckbox.checked });
+});
+
+autoCheckCheckbox.addEventListener("change", () => {
+  chrome.storage.sync.set({ autoCheck: autoCheckCheckbox.checked });
 });
 
 async function ensureContentScript(tabId) {

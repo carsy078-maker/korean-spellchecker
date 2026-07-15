@@ -6,6 +6,22 @@
   let lastEditable = null;
   let loadingTimer = null;
 
+  // ── 실시간 자동 검사 상태 ──────────────────────────
+  const AUTO_DEBOUNCE_MS = 1500; // 타이핑 멈춘 뒤 검사까지 대기(LLM 호출이라 넉넉히)
+  let autoCheckEnabled = false; // 옵션 토글값
+  let autoTimer = null; // 디바운스 타이머
+  let checking = false; // 검사 진행 중(중복 실행 방지)
+  let suppressAuto = false; // 우리가 적용하며 낸 input 이벤트에 반응하지 않도록
+
+  chrome.storage.sync.get({ autoCheck: false }, (v) => {
+    autoCheckEnabled = !!v.autoCheck;
+  });
+  chrome.storage.onChanged.addListener((changes, area) => {
+    if (area === "sync" && changes.autoCheck) {
+      autoCheckEnabled = !!changes.autoCheck.newValue;
+    }
+  });
+
   function headerHtml() {
     return (
       `<div class="ko-sc-header">한국어 맞춤법 검사 ` +
@@ -50,6 +66,29 @@
   // 툴바 팝업을 열면 document.activeElement 가 body 로 바뀌므로 이 추적이 필수다.
   document.addEventListener("focusin", (e) => remember(e.target), true);
   document.addEventListener("pointerdown", (e) => remember(e.target), true);
+
+  // ── 타이핑 실시간 자동 검사 (옵션 ON 일 때만) ─────────
+  function scheduleAuto() {
+    clearTimeout(autoTimer);
+    autoTimer = setTimeout(() => {
+      if (checking) {
+        // 아직 이전 검사 진행 중이면 잠시 후 다시 시도
+        scheduleAuto();
+        return;
+      }
+      handleRunCheck(true);
+    }, AUTO_DEBOUNCE_MS);
+  }
+
+  document.addEventListener(
+    "input",
+    (e) => {
+      if (!autoCheckEnabled || suppressAuto) return;
+      if (!editableAncestor(e.target)) return;
+      scheduleAuto();
+    },
+    true
+  );
 
   // 스크립트가 페이지 로드 후 나중에 주입된 경우(기존 탭)에도 현재 포커스된 칸을 즉시 잡는다
   if (isEditable(document.activeElement)) lastEditable = document.activeElement;
@@ -102,6 +141,9 @@
 
   // 입력칸(input/textarea)에 교정문을 적용한다. 실제로 값이 바뀌면 true 를 반환한다.
   function applyToField(el, newText, s, e) {
+    // 적용하며 내는 input 이벤트로 자동 검사가 다시 트리거되지 않게 잠시 억제
+    suppressAuto = true;
+    setTimeout(() => (suppressAuto = false), 600);
     el.focus();
     const before = el.value;
     const len = before.length;
@@ -142,6 +184,8 @@
 
   // contenteditable 에 교정문을 적용한다. 실제로 내용이 바뀌면 true 를 반환한다.
   function applyToEditable(el, newText, range) {
+    suppressAuto = true;
+    setTimeout(() => (suppressAuto = false), 600);
     el.focus();
     const before = el.innerText;
     const sel = window.getSelection();
@@ -318,22 +362,27 @@
     }
   }
 
-  async function handleRunCheck() {
+  // auto=true 이면 실시간 자동 검사. 방해되지 않도록 조용히 동작한다:
+  // 입력칸/글자 없거나 오류/고칠 것 없으면 아무 것도 띄우지 않는다.
+  async function handleRunCheck(auto = false) {
     const el = getActiveEditable();
     if (!el) {
-      showError(
-        "검사할 입력칸을 찾지 못했어요.\n" +
-          "① 글자를 입력하는 칸을 한 번 클릭한 뒤\n" +
-          "② 단축키 Ctrl+Shift+K 로 실행해 보세요.\n" +
-          "(예전부터 열려 있던 페이지라면 새로고침 후 다시 시도)"
-      );
+      if (!auto)
+        showError(
+          "검사할 입력칸을 찾지 못했어요.\n" +
+            "① 글자를 입력하는 칸을 한 번 클릭한 뒤\n" +
+            "② 단축키 Ctrl+Shift+K 로 실행해 보세요.\n" +
+            "(예전부터 열려 있던 페이지라면 새로고침 후 다시 시도)"
+        );
       return;
     }
     const info = getTargetText(el);
     if (!info || !info.text.trim()) {
-      showError("입력칸에 검사할 글자가 없어요.\n글자를 입력한 뒤 다시 시도하세요.");
+      if (!auto) showError("입력칸에 검사할 글자가 없어요.\n글자를 입력한 뒤 다시 시도하세요.");
       return;
     }
+    // 자동 모드에서 한글이 하나도 없으면 조용히 건너뜀
+    if (auto && !/[가-힣]/.test(info.text)) return;
 
     const { enabled = true, model = DEFAULT_MODEL } = await chrome.storage.sync.get({
       enabled: true,
@@ -341,17 +390,24 @@
     });
     if (!enabled) return;
 
-    showLoading();
+    if (!auto) showLoading();
+    checking = true;
 
     chrome.runtime.sendMessage({ type: "CHECK", text: info.text, model }, (resp) => {
+      checking = false;
       if (chrome.runtime.lastError) {
-        showError(chrome.runtime.lastError.message);
+        if (!auto) showError(chrome.runtime.lastError.message);
         return;
       }
       if (!resp || !resp.ok) {
-        showError((resp && resp.error) || "알 수 없는 오류");
+        if (!auto) showError((resp && resp.error) || "알 수 없는 오류");
         return;
       }
+      const edits = resp.result.edits || [];
+      const hasChange = edits.length && resp.result.corrected !== info.text;
+      // 자동 모드: 고칠 게 없으면 아무 것도 띄우지 않는다
+      if (auto && !hasChange) return;
+
       showResult(info, resp.result, (correctedText) => {
         if (info.kind === "field") {
           return applyToField(info.el, correctedText, info.s, info.e);
@@ -367,7 +423,7 @@
       return;
     }
     if (msg.type === "RUN_CHECK") {
-      handleRunCheck();
+      handleRunCheck(false);
     }
   });
 })();
