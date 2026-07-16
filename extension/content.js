@@ -365,6 +365,9 @@
   // auto=true 이면 실시간 자동 검사. 방해되지 않도록 조용히 동작한다:
   // 입력칸/글자 없거나 오류/고칠 것 없으면 아무 것도 띄우지 않는다.
   async function handleRunCheck(auto = false) {
+    // 수동 검사는 누르는 "즉시" 검사 중 창을 띄운다 (storage 대기 전에 렌더).
+    if (!auto) showLoading();
+
     const el = getActiveEditable();
     if (!el) {
       if (!auto)
@@ -388,10 +391,13 @@
       enabled: true,
       model: DEFAULT_MODEL,
     });
-    if (!enabled) return;
+    if (!enabled) {
+      if (!auto) removeOverlay();
+      return;
+    }
 
-    // 자동/수동 모두 검사 시작 시 "검사 중..." 창을 띄운다
-    showLoading();
+    // 자동 모드는 검증을 통과한 뒤(불필요한 깜빡임 방지) 검사 중 창을 띄운다
+    if (auto) showLoading();
     checking = true;
 
     chrome.runtime.sendMessage({ type: "CHECK", text: info.text, model }, (resp) => {
