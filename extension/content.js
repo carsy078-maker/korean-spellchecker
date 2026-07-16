@@ -313,53 +313,96 @@
     });
   }
 
+  // 선택된 교정만 원문에 적용한 텍스트를 만든다.
+  // 전부 선택이면 모델의 전체 교정문(result.corrected)을 그대로 쓴다(최고 충실도).
+  function buildSelectedText(originalText, fullCorrected, allEdits, selectedEdits) {
+    if (selectedEdits.length === allEdits.length) return fullCorrected;
+    let t = originalText;
+    const seen = new Set();
+    const dedup = selectedEdits
+      .filter((e) => e.before && !seen.has(e.before) && seen.add(e.before))
+      // 긴 표현부터 치환해 부분 겹침 방지
+      .sort((a, b) => b.before.length - a.before.length);
+    for (const e of dedup) t = t.split(e.before).join(e.after);
+    return t;
+  }
+
   function showResult(info, result, onApply) {
     clearLoadingTimer();
     const box = document.getElementById(OVERLAY_ID) || createOverlayShell();
-    const edits = result.edits || [];
+    const edits = (result.edits || []).filter((e) => e.before && e.after);
     const unchanged = !edits.length || result.corrected === info.text;
+
+    if (unchanged) {
+      box.innerHTML = `
+        ${headerHtml()}
+        <div class="ko-sc-body"><div class="ko-sc-ok">수정할 내용이 없습니다.</div></div>
+      `;
+      box.querySelector('[data-action="close"]').addEventListener("click", removeOverlay);
+      return;
+    }
 
     const editListHtml = edits
       .map(
-        (ed) =>
-          `<li><span class="ko-sc-before">${escapeHtml(ed.before)}</span> → <span class="ko-sc-after">${escapeHtml(
-            ed.after
-          )}</span><div class="ko-sc-reason">${escapeHtml(ed.reason || "")}</div></li>`
+        (ed, i) =>
+          `<li><label class="ko-sc-edit">` +
+          `<input type="checkbox" class="ko-sc-edit-cb" data-idx="${i}" checked>` +
+          `<span class="ko-sc-edit-text">` +
+          `<span class="ko-sc-before">${escapeHtml(ed.before)}</span> → ` +
+          `<span class="ko-sc-after">${escapeHtml(ed.after)}</span>` +
+          `<span class="ko-sc-reason">${escapeHtml(ed.reason || "")}</span>` +
+          `</span></label></li>`
       )
       .join("");
 
     box.innerHTML = `
       ${headerHtml()}
       <div class="ko-sc-body">
-        ${
-          unchanged
-            ? `<div class="ko-sc-ok">수정할 내용이 없습니다.</div>`
-            : `
-          <div class="ko-sc-corrected">${highlightCorrected(result.corrected, edits)}</div>
-          <ul class="ko-sc-edits">${editListHtml}</ul>
-          <div class="ko-sc-actions">
-            <button class="ko-sc-apply" data-action="apply">적용</button>
-            <button class="ko-sc-cancel" data-action="cancel">취소</button>
-          </div>
-        `
-        }
+        <div class="ko-sc-corrected" id="__ksc_preview"></div>
+        <label class="ko-sc-selall"><input type="checkbox" id="__ksc_all" checked> 전체 선택</label>
+        <ul class="ko-sc-edits">${editListHtml}</ul>
+        <div class="ko-sc-actions">
+          <button class="ko-sc-apply" data-action="apply">선택 적용</button>
+          <button class="ko-sc-cancel" data-action="cancel">취소</button>
+        </div>
       </div>
     `;
-    box.querySelector('[data-action="close"]').addEventListener("click", removeOverlay);
-    const cancelBtn = box.querySelector('[data-action="cancel"]');
-    if (cancelBtn) cancelBtn.addEventListener("click", removeOverlay);
+
+    const cbs = [...box.querySelectorAll(".ko-sc-edit-cb")];
+    const allCb = box.querySelector("#__ksc_all");
+    const preview = box.querySelector("#__ksc_preview");
     const applyBtn = box.querySelector('[data-action="apply"]');
-    if (applyBtn) {
-      applyBtn.addEventListener("click", () => {
-        const applied = onApply(result.corrected);
-        if (applied) {
-          removeOverlay();
-        } else {
-          // 자동 적용 실패 → 복사 폴백 제공
-          showCopyFallback(result.corrected);
-        }
-      });
+
+    const selectedEdits = () => cbs.filter((cb) => cb.checked).map((cb) => edits[+cb.dataset.idx]);
+
+    function refresh() {
+      const sel = selectedEdits();
+      preview.innerHTML = highlightCorrected(
+        buildSelectedText(info.text, result.corrected, edits, sel),
+        sel
+      );
+      applyBtn.disabled = sel.length === 0;
+      allCb.checked = sel.length === edits.length;
+      allCb.indeterminate = sel.length > 0 && sel.length < edits.length;
     }
+
+    cbs.forEach((cb) => cb.addEventListener("change", refresh));
+    allCb.addEventListener("change", () => {
+      cbs.forEach((cb) => (cb.checked = allCb.checked));
+      refresh();
+    });
+    refresh();
+
+    box.querySelector('[data-action="close"]').addEventListener("click", removeOverlay);
+    box.querySelector('[data-action="cancel"]').addEventListener("click", removeOverlay);
+    applyBtn.addEventListener("click", () => {
+      const sel = selectedEdits();
+      if (sel.length === 0) return;
+      const text = buildSelectedText(info.text, result.corrected, edits, sel);
+      const applied = onApply(text);
+      if (applied) removeOverlay();
+      else showCopyFallback(text);
+    });
   }
 
   // auto=true 이면 실시간 자동 검사. 방해되지 않도록 조용히 동작한다:

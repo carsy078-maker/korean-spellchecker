@@ -112,6 +112,32 @@
   border-bottom: 1px dashed #e5e5e5;
 }
 
+#__ko-spellcheck-overlay__ .ko-sc-selall {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
+  font-size: 12px;
+  color: #555;
+  cursor: pointer;
+}
+
+#__ko-spellcheck-overlay__ .ko-sc-edit {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  cursor: pointer;
+}
+
+#__ko-spellcheck-overlay__ .ko-sc-edit-cb {
+  margin-top: 3px;
+  flex: 0 0 auto;
+}
+
+#__ko-spellcheck-overlay__ .ko-sc-edit-text {
+  flex: 1 1 auto;
+}
+
 #__ko-spellcheck-overlay__ .ko-sc-before {
   color: #c0392b;
   text-decoration: line-through;
@@ -123,6 +149,7 @@
 }
 
 #__ko-spellcheck-overlay__ .ko-sc-reason {
+  display: block;
   color: #888;
   font-size: 12px;
 }
@@ -144,6 +171,11 @@
 #__ko-spellcheck-overlay__ .ko-sc-apply {
   background: #2563eb;
   color: #fff;
+}
+
+#__ko-spellcheck-overlay__ .ko-sc-apply:disabled {
+  background: #9ca3af;
+  cursor: default;
 }
 
 #__ko-spellcheck-overlay__ .ko-sc-cancel {
