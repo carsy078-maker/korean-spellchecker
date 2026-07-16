@@ -390,23 +390,29 @@
     });
     if (!enabled) return;
 
-    if (!auto) showLoading();
+    // 자동/수동 모두 검사 시작 시 "검사 중..." 창을 띄운다
+    showLoading();
     checking = true;
 
     chrome.runtime.sendMessage({ type: "CHECK", text: info.text, model }, (resp) => {
       checking = false;
       if (chrome.runtime.lastError) {
-        if (!auto) showError(chrome.runtime.lastError.message);
+        if (auto) removeOverlay();
+        else showError(chrome.runtime.lastError.message);
         return;
       }
       if (!resp || !resp.ok) {
-        if (!auto) showError((resp && resp.error) || "알 수 없는 오류");
+        if (auto) removeOverlay();
+        else showError((resp && resp.error) || "알 수 없는 오류");
         return;
       }
       const edits = resp.result.edits || [];
       const hasChange = edits.length && resp.result.corrected !== info.text;
-      // 자동 모드: 고칠 게 없으면 아무 것도 띄우지 않는다
-      if (auto && !hasChange) return;
+      // 자동 모드: 고칠 게 없으면 로딩 창을 닫고 조용히 끝낸다
+      if (auto && !hasChange) {
+        removeOverlay();
+        return;
+      }
 
       showResult(info, resp.result, (correctedText) => {
         if (info.kind === "field") {
