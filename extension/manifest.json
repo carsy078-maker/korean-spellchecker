@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAsyBsV5WNEJM7Hz/dElW8++Rl6PBXDf4n6dDYh/J+ZwQQDh12Z+I4PLXCTTpCjh0T6cNVQjnQ59SrUcMgAnaItpsUT/dbwO8N6lluCQx07uy+gIQpiaNildXytqokbWr2Lrat32ZdFf/myfc409pQpLlOQJi7ChEzWuq0jW3YBW2MMtdFObRrclSDdr+HSVC23PmQOaEIaRRULjhu5VaPYOSCIoFrR+KrjtZLjKjBO3QcUix/SnTWixVB+ClOEatcGgn00VsKVrZWicA2pXlYdrYEFvpYTaX1VJQuv3H1l3RLDtu4MbUPZFKfdzjnwBr+Q+EzMmbmRh2r7Deb1KcIpwIDAQAB",
   "name": "한국어 맞춤법 검사기 (로컬 Claude)",
-  "version": "0.1.9",
+  "version": "0.1.10",
   "description": "로컬 Claude Code CLI로 웹 입력창의 한국어 맞춤법을 교정합니다. API 과금 없음.",
   "permissions": ["storage", "activeTab", "scripting", "nativeMessaging"],
   "background": { "service_worker": "background.js" },

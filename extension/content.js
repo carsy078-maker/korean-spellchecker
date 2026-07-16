@@ -313,17 +313,29 @@
     });
   }
 
-  // 선택된 교정만 원문에 적용한 텍스트를 만든다.
-  // 전부 선택이면 모델의 전체 교정문(result.corrected)을 그대로 쓴다(최고 충실도).
-  function buildSelectedText(originalText, fullCorrected, allEdits, selectedEdits) {
-    if (selectedEdits.length === allEdits.length) return fullCorrected;
-    let t = originalText;
-    const seen = new Set();
-    const dedup = selectedEdits
-      .filter((e) => e.before && !seen.has(e.before) && seen.add(e.before))
-      // 긴 표현부터 치환해 부분 겹침 방지
-      .sort((a, b) => b.before.length - a.before.length);
-    for (const e of dedup) t = t.split(e.before).join(e.after);
+  // 원문에서 sub 가 나오는 모든 (겹치지 않는) 시작 위치를 찾는다.
+  function findOccurrences(text, sub) {
+    const positions = [];
+    let i = 0;
+    while (sub && (i = text.indexOf(sub, i)) !== -1) {
+      positions.push(i);
+      i += sub.length;
+    }
+    return positions;
+  }
+
+  // 선택된 "출현 위치"들만 원문에 반영한다. 오른쪽(뒤)부터 치환해 인덱스가 안 밀리게 하고,
+  // 서로 겹치는 위치는 건너뛴다.
+  function applyByPositions(original, instances) {
+    const sorted = [...instances].sort((a, b) => b.start - a.start);
+    let t = original;
+    let lastStart = Infinity;
+    for (const ins of sorted) {
+      const end = ins.start + ins.before.length;
+      if (end > lastStart) continue; // 뒤 항목과 범위가 겹치면 건너뜀
+      t = t.slice(0, ins.start) + ins.after + t.slice(end);
+      lastStart = ins.start;
+    }
     return t;
   }
 
@@ -331,8 +343,18 @@
     clearLoadingTimer();
     const box = document.getElementById(OVERLAY_ID) || createOverlayShell();
     const edits = (result.edits || []).filter((e) => e.before && e.after);
-    const unchanged = !edits.length || result.corrected === info.text;
 
+    // 각 교정을 "원문 내 출현 위치"별 인스턴스로 펼친다 → 같은 오타가 여러 번 나와도
+    // 위치별로 따로 고를 수 있다.
+    const instances = [];
+    for (const ed of edits) {
+      for (const start of findOccurrences(info.text, ed.before)) {
+        instances.push({ start, before: ed.before, after: ed.after, reason: ed.reason || "" });
+      }
+    }
+    instances.sort((a, b) => a.start - b.start);
+
+    const unchanged = instances.length === 0 || result.corrected === info.text;
     if (unchanged) {
       box.innerHTML = `
         ${headerHtml()}
@@ -342,17 +364,23 @@
       return;
     }
 
-    const editListHtml = edits
-      .map(
-        (ed, i) =>
+    const CTX = 12; // 앞뒤 문맥 글자 수
+    const rowsHtml = instances
+      .map((ins, i) => {
+        const pre = info.text.slice(Math.max(0, ins.start - CTX), ins.start);
+        const post = info.text.slice(ins.start + ins.before.length, ins.start + ins.before.length + CTX);
+        return (
           `<li><label class="ko-sc-edit">` +
           `<input type="checkbox" class="ko-sc-edit-cb" data-idx="${i}" checked>` +
           `<span class="ko-sc-edit-text">` +
-          `<span class="ko-sc-before">${escapeHtml(ed.before)}</span> → ` +
-          `<span class="ko-sc-after">${escapeHtml(ed.after)}</span>` +
-          `<span class="ko-sc-reason">${escapeHtml(ed.reason || "")}</span>` +
+          `<span class="ko-sc-ctx">${ins.start > CTX ? "…" : ""}${escapeHtml(pre)}</span>` +
+          `<span class="ko-sc-before">${escapeHtml(ins.before)}</span> → ` +
+          `<span class="ko-sc-after">${escapeHtml(ins.after)}</span>` +
+          `<span class="ko-sc-ctx">${escapeHtml(post)}…</span>` +
+          `<span class="ko-sc-reason">${escapeHtml(ins.reason)}</span>` +
           `</span></label></li>`
-      )
+        );
+      })
       .join("");
 
     box.innerHTML = `
@@ -360,7 +388,7 @@
       <div class="ko-sc-body">
         <div class="ko-sc-corrected" id="__ksc_preview"></div>
         <label class="ko-sc-selall"><input type="checkbox" id="__ksc_all" checked> 전체 선택</label>
-        <ul class="ko-sc-edits">${editListHtml}</ul>
+        <ul class="ko-sc-edits">${rowsHtml}</ul>
         <div class="ko-sc-actions">
           <button class="ko-sc-apply" data-action="apply">선택 적용</button>
           <button class="ko-sc-cancel" data-action="cancel">취소</button>
@@ -373,17 +401,21 @@
     const preview = box.querySelector("#__ksc_preview");
     const applyBtn = box.querySelector('[data-action="apply"]');
 
-    const selectedEdits = () => cbs.filter((cb) => cb.checked).map((cb) => edits[+cb.dataset.idx]);
+    const selectedInstances = () =>
+      cbs.filter((cb) => cb.checked).map((cb) => instances[+cb.dataset.idx]);
+
+    // 전부 선택이면 모델 전체 교정문(누락 없이), 일부면 선택 위치만 반영
+    function buildText(sel) {
+      if (sel.length === instances.length) return result.corrected;
+      return applyByPositions(info.text, sel);
+    }
 
     function refresh() {
-      const sel = selectedEdits();
-      preview.innerHTML = highlightCorrected(
-        buildSelectedText(info.text, result.corrected, edits, sel),
-        sel
-      );
+      const sel = selectedInstances();
+      preview.innerHTML = highlightCorrected(buildText(sel), sel);
       applyBtn.disabled = sel.length === 0;
-      allCb.checked = sel.length === edits.length;
-      allCb.indeterminate = sel.length > 0 && sel.length < edits.length;
+      allCb.checked = sel.length === instances.length;
+      allCb.indeterminate = sel.length > 0 && sel.length < instances.length;
     }
 
     cbs.forEach((cb) => cb.addEventListener("change", refresh));
@@ -396,9 +428,9 @@
     box.querySelector('[data-action="close"]').addEventListener("click", removeOverlay);
     box.querySelector('[data-action="cancel"]').addEventListener("click", removeOverlay);
     applyBtn.addEventListener("click", () => {
-      const sel = selectedEdits();
+      const sel = selectedInstances();
       if (sel.length === 0) return;
-      const text = buildSelectedText(info.text, result.corrected, edits, sel);
+      const text = buildText(sel);
       const applied = onApply(text);
       if (applied) removeOverlay();
       else showCopyFallback(text);

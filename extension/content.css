@@ -136,6 +136,11 @@
 
 #__ko-spellcheck-overlay__ .ko-sc-edit-text {
   flex: 1 1 auto;
+  word-break: break-word;
+}
+
+#__ko-spellcheck-overlay__ .ko-sc-ctx {
+  color: #999;
 }
 
 #__ko-spellcheck-overlay__ .ko-sc-before {
